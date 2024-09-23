@@ -2,8 +2,16 @@ import streamlit as st
 import openai
 import pandas as pd
 import io
-import plotly.express as px
 from streamlit_option_menu import option_menu
+
+# Gestione dell'importazione di plotly
+try:
+    import plotly.express as px
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    st.warning("Plotly non è disponibile. Alcune funzionalità di visualizzazione potrebbero essere limitate.")
+
 
 # Configura la chiave API di OpenAI dai secrets di Streamlit
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -143,7 +151,7 @@ def stats_page():
             st.info("Generate a dataset to see its summary here.")
         st.markdown("</div>", unsafe_allow_html=True)
     
-    if 'df' in st.session_state:
+    if 'df' in st.session_state and PLOTLY_AVAILABLE:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("<h2 class='section-title'>Data Visualization</h2>", unsafe_allow_html=True)
         df = st.session_state['df']
@@ -157,6 +165,12 @@ def stats_page():
         else:
             st.info("The current dataset doesn't have enough numeric columns for visualization.")
         st.markdown("</div>", unsafe_allow_html=True)
+    elif 'df' in st.session_state and not PLOTLY_AVAILABLE:
+        st.warning("Plotly non è disponibile. La visualizzazione dei dati non può essere mostrata.")
+    else:
+        st.info("Generate a dataset to see its summary here.")
+
+
 
 # Barra di navigazione
 selected = option_menu(
