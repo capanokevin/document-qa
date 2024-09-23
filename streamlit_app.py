@@ -2,6 +2,8 @@ import streamlit as st
 import openai
 import pandas as pd
 import io
+import plotly.express as px
+from streamlit_option_menu import option_menu
 
 # Configura la chiave API di OpenAI dai secrets di Streamlit
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -18,15 +20,22 @@ st.markdown("""
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     .stTextArea textarea {
-        background-color: transparent;
+        background-color: rgba(255, 255, 255, 0.1);
         border: 1px solid #FFFFFF;
         color: #FFFFFF;
         height: 150px;
     }
     .stButton>button {
-        background-color: #1E1E1E;
-        color: #FFFFFF;
+        background-color: #00d084;
+        color: #000000;
+        font-weight: bold;
         border-radius: 5px;
+        border: none;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        background-color: #00a067;
     }
     .stDataFrame {
         border-radius: 10px;
@@ -46,71 +55,127 @@ st.markdown("""
         padding: 8px;
     }
     .main-title {
-        text-align: center;
-        padding: 20px 0;
         font-size: 2.5em;
         font-weight: bold;
-        color: #4CAF50;
+        color: #FFFFFF;
+        margin-bottom: 20px;
+    }
+    .section-title {
+        color: #00d084;
+        font-size: 1.5em;
+        margin-top: 30px;
+        margin-bottom: 15px;
+    }
+    .card {
+        background-color: #1E1E1E;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Titolo dell'applicazione
-st.markdown("<h1 class='main-title'>🚀 AI-Powered Dataset Generator</h1>", unsafe_allow_html=True)
-
-# Creazione di due colonne con proporzioni personalizzate
-col1, col2 = st.columns([2, 3])
-
-with col1:
-    # Sezione di input dell'utente
-    st.header("Describe Your Data Needs:")
-    user_input = st.text_area("Write here...", height=200)
+# Funzione per la pagina principale
+def main_page():
+    st.markdown("<h1 class='main-title'>AI Dataset Generator</h1>", unsafe_allow_html=True)
     
-    if st.button("Generate Dataset"):
-        if user_input.strip() != "":
-            with st.spinner("Generating dataset..."):
-                # Chiamata all'API di OpenAI per elaborare l'input dell'utente
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are an assistant that helps users create datasets based on their needs. When providing data, return it in CSV format without additional text."},
-                        {"role": "user", "content": user_input}
-                    ]
-                )
-                # Estrazione della risposta dell'assistente
-                reply = response['choices'][0]['message']['content']
-                # Parsing della risposta CSV in un DataFrame
-                try:
-                    csv_data = io.StringIO(reply)
-                    df = pd.read_csv(csv_data)
-                    # Memorizzazione del DataFrame nello stato della sessione
-                    st.session_state['df'] = df
-                except Exception as e:
-                    st.error("An error occurred while processing the data. Please ensure the AI returned data in the correct format.")
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<h2 class='section-title'>Describe Your Data Needs</h2>", unsafe_allow_html=True)
+        user_input = st.text_area("Be as specific as possible about the columns, data types, and patterns you want to see.", height=200)
+        if st.button("Generate Dataset"):
+            if user_input.strip() != "":
+                with st.spinner("Generating dataset..."):
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "You are an assistant that helps users create datasets based on their needs. When providing data, return it in CSV format without additional text."},
+                            {"role": "user", "content": user_input}
+                        ]
+                    )
+                    reply = response['choices'][0]['message']['content']
+                    try:
+                        csv_data = io.StringIO(reply)
+                        df = pd.read_csv(csv_data)
+                        st.session_state['df'] = df
+                        st.session_state['datasets_generated'] = st.session_state.get('datasets_generated', 0) + 1
+                    except Exception as e:
+                        st.error("An error occurred while processing the data. Please ensure the AI returned data in the correct format.")
+            else:
+                st.warning("Please enter a description to proceed.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<h2 class='section-title'>Generated Dataset</h2>", unsafe_allow_html=True)
+        if 'df' in st.session_state:
+            st.dataframe(st.session_state['df'], use_container_width=True)
         else:
-            st.warning("Please enter a description to proceed.")
+            st.info("Your generated dataset will appear here.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-with col2:
-    # Sezione per visualizzare il dataset
-    st.header("Your Generated Dataset:")
+# Funzione per la pagina delle statistiche
+def stats_page():
+    st.markdown("<h1 class='main-title'>Dataset Statistics</h1>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<h2 class='section-title'>Usage Statistics</h2>", unsafe_allow_html=True)
+        datasets_generated = st.session_state.get('datasets_generated', 0)
+        st.metric("Datasets Generated", datasets_generated)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<h2 class='section-title'>Recent Dataset Summary</h2>", unsafe_allow_html=True)
+        if 'df' in st.session_state:
+            df = st.session_state['df']
+            st.write(f"Number of Rows: {len(df)}")
+            st.write(f"Number of Columns: {len(df.columns)}")
+            st.write("Column Types:")
+            for col, dtype in df.dtypes.items():
+                st.write(f"- {col}: {dtype}")
+        else:
+            st.info("Generate a dataset to see its summary here.")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
     if 'df' in st.session_state:
-        st.dataframe(st.session_state['df'], use_container_width=True)
-    else:
-        # Tabella segnaposto
-        placeholder_data = {
-            'Column1': ['Sample', 'Data', 'Here'],
-            'Column2': ['Will be', 'Replaced with', 'Generated Data'],
-            'Column3': ['When You', 'Generate', 'A Dataset']
-        }
-        placeholder_df = pd.DataFrame(placeholder_data)
-        st.dataframe(placeholder_df, use_container_width=True)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<h2 class='section-title'>Data Visualization</h2>", unsafe_allow_html=True)
+        df = st.session_state['df']
+        numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns
+        if len(numeric_cols) > 1:
+            x_axis = st.selectbox("Select X-axis", numeric_cols)
+            y_axis = st.selectbox("Select Y-axis", [col for col in numeric_cols if col != x_axis])
+            fig = px.scatter(df, x=x_axis, y=y_axis, title=f"{y_axis} vs {x_axis}")
+            fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font_color="white")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("The current dataset doesn't have enough numeric columns for visualization.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Aggiunta di una sezione informativa sotto le colonne
-st.markdown("---")
-st.markdown("""
-    ## How to Use This Tool
-    1. **Describe Your Needs**: In the text area, describe the type of dataset you want to generate. Be as specific as possible about the columns, data types, and any patterns you want to see.
-    2. **Generate**: Click the 'Generate Dataset' button to create your custom dataset using AI.
-    3. **Review**: Your generated dataset will appear in the table on the right. You can scroll through it to review the data.
-    4. **Iterate**: If the dataset doesn't meet your needs, try refining your description and generating again.
-""")
+# Barra di navigazione
+selected = option_menu(
+    menu_title=None,
+    options=["Generate", "Statistics"],
+    icons=["file-earmark-plus", "graph-up"],
+    menu_icon="cast",
+    default_index=0,
+    orientation="horizontal",
+    styles={
+        "container": {"padding": "0!important", "background-color": "#333333"},
+        "icon": {"color": "#FFFFFF", "font-size": "25px"}, 
+        "nav-link": {"font-size": "20px", "text-align": "center", "margin":"0px", "--hover-color": "#00d084"},
+        "nav-link-selected": {"background-color": "#00d084"},
+    }
+)
+
+# Routing basato sulla selezione del menu
+if selected == "Generate":
+    main_page()
+elif selected == "Statistics":
+    stats_page()
