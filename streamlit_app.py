@@ -1,53 +1,81 @@
 import streamlit as st
-from openai import OpenAI
+import openai
+import pandas as pd
+import io
 
-# Show title and description.
-st.title("📄 Document question answering")
-st.write(
-    "Upload a document below and ask a question about it – GPT will answer! "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-)
+# Configura la chiave API di OpenAI dai secrets di Streamlit
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+# Configurazione della pagina
+st.set_page_config(page_title="Build Your Dataset with our AI", layout="wide")
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+# Stile personalizzato con CSS
+st.markdown("""
+    <style>
+    body {
+        background-color: #000000;
+        color: #FFFFFF;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .stTextArea textarea {
+        background-color: #1E1E1E;
+        color: #FFFFFF;
+    }
+    .stButton>button {
+        background-color: #1E1E1E;
+        color: #FFFFFF;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Let the user upload a file via `st.file_uploader`.
-    uploaded_file = st.file_uploader(
-        "Upload a document (.txt or .md)", type=("txt", "md")
-    )
+# Titolo dell'applicazione
+st.title("🚀 Build Your Dataset with our AI")
 
-    # Ask the user for a question via `st.text_area`.
-    question = st.text_area(
-        "Now ask a question about the document!",
-        placeholder="Can you give me a short summary?",
-        disabled=not uploaded_file,
-    )
+# Creazione di due colonne
+col1, col2 = st.columns(2)
 
-    if uploaded_file and question:
+with col1:
+    # Sezione di input dell'utente
+    st.header("Descrivi le tue esigenze di dati:")
+    user_input = st.text_area("Scrivi qui...", height=300)
 
-        # Process the uploaded file and question.
-        document = uploaded_file.read().decode()
-        messages = [
-            {
-                "role": "user",
-                "content": f"Here's a document: {document} \n\n---\n\n {question}",
-            }
-        ]
+    if st.button("Genera Dataset"):
+        if user_input.strip() != "":
+            with st.spinner("Generazione del dataset in corso..."):
+                # Chiamata all'API di OpenAI per elaborare l'input dell'utente
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "Sei un assistente che aiuta gli utenti a creare dataset basati sulle loro esigenze. Quando fornisci i dati, restituiscili in formato CSV senza testo aggiuntivo."},
+                        {"role": "user", "content": user_input}
+                    ]
+                )
 
-        # Generate an answer using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            stream=True,
-        )
+                # Estrazione della risposta dell'assistente
+                reply = response['choices'][0]['message']['content']
 
-        # Stream the response to the app using `st.write_stream`.
-        st.write_stream(stream)
+                # Parsing della risposta CSV in un DataFrame
+                try:
+                    csv_data = io.StringIO(reply)
+                    df = pd.read_csv(csv_data)
+                    # Memorizzazione del DataFrame nello stato della sessione
+                    st.session_state['df'] = df
+                except Exception as e:
+                    st.error("Si è verificato un errore nell'elaborazione dei dati. Assicurati che l'AI abbia restituito i dati nel formato corretto.")
+        else:
+            st.warning("Per favore, inserisci una descrizione per procedere.")
+
+with col2:
+    # Sezione per visualizzare il dataset
+    st.header("Il Tuo Dataset:")
+    if 'df' in st.session_state:
+        st.table(st.session_state['df'])
+    else:
+        # Tabella segnaposto
+        placeholder_data = {
+            'Colonna1': ['-', '-', '-'],
+            'Colonna2': ['-', '-', '-'],
+            'Colonna3': ['-', '-', '-']
+        }
+        placeholder_df = pd.DataFrame(placeholder_data)
+        st.table(placeholder_df)
