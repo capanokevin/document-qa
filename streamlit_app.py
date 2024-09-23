@@ -18,15 +18,24 @@ st.markdown("""
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     .stTextArea textarea {
-        background-color: #1E1E1E;
+        background-color: transparent;
+        border: 1px solid #FFFFFF;
         color: #FFFFFF;
+        height: 150px;
     }
     .stButton>button {
         background-color: #1E1E1E;
         color: #FFFFFF;
     }
+    .stDataFrame {
+        border-radius: 10px;           /* Angoli arrotondati per la tabella */
+    }
+    .dataframe thead th {
+        background-color: #333333;    /* Cambia il colore di sfondo delle intestazioni */
+    }
     </style>
     """, unsafe_allow_html=True)
+
 
 # Titolo dell'applicazione
 st.title("🚀 Build Your Dataset with our AI")
